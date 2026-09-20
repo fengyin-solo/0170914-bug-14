@@ -147,23 +147,26 @@
       var merchants = MockStore.getMerchants();
       var map = {};
       merchants.forEach(function (m) { map[m.id] = m.name; });
-      
-      if (blacklist.length === 0) {
+
+      // 仅保留当前仍存在的商家，保证黑名单记录与商家列表/下拉选项一致
+      var data = blacklist
+        .filter(function (id) { return map[id] != null; })
+        .map(function (id) {
+          return { id: id, name: map[id] };
+        });
+
+      if (data.length === 0) {
         elements.blacklistTableBody.innerHTML = '';
         elements.blacklistEmpty.classList.remove('hidden');
         var wrap = elements.blacklistTableBody.closest('.table-wrap');
         if (wrap) wrap.style.display = 'none';
         return;
       }
-      
+
       elements.blacklistEmpty.classList.add('hidden');
       var wrap = elements.blacklistTableBody.closest('.table-wrap');
       if (wrap) wrap.style.display = '';
-      
-      var data = blacklist.map(function (id) {
-        return { id: id, name: map[id] || '-' };
-      });
-      
+
       Table.render(elements.blacklistTableBody, data, function (item) {
         return '<td class="font-mono text-sm text-obsidian">' + Utils.escapeHtml(item.id) + '</td>' +
           '<td class="text-obsidian">' + Utils.escapeHtml(item.name) + '</td>' +

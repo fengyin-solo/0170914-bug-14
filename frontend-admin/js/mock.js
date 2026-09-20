@@ -316,6 +316,8 @@
       var all = load('merchantKnowledge', {});
       delete all[id];
       save('merchantKnowledge', all);
+      // 同步清理黑名单，避免残留已删除商家的记录
+      store.setBlacklist(store.getBlacklist(false).filter(function (bid) { return bid !== id; }));
       return list;
     },
     getMerchantKnowledge: function (merchantId) {
@@ -530,8 +532,25 @@
       return list;
     },
 
-    getBlacklist: function () {
-      return load('blacklistMerchantIds', defaultBlacklistMerchantIds);
+    /**
+     * 获取黑名单商家 ID
+     * @param {boolean} sanitize 是否按当前商家列表清洗（默认 true）：
+     *   剔除已不存在的商家 ID 并去重，保证黑名单与商家列表一致
+     */
+    getBlacklist: function (sanitize) {
+      var raw = load('blacklistMerchantIds', defaultBlacklistMerchantIds);
+      if (sanitize === false) return raw;
+      var validIds = {};
+      store.getMerchants().forEach(function (m) { validIds[m.id] = true; });
+      var cleaned = [];
+      raw.forEach(function (id) {
+        if (validIds[id] && cleaned.indexOf(id) === -1) cleaned.push(id);
+      });
+      // 清洗结果与存储不一致时回写，自愈历史残留数据
+      if (cleaned.length !== raw.length || cleaned.some(function (id, i) { return id !== raw[i]; })) {
+        save('blacklistMerchantIds', cleaned);
+      }
+      return cleaned;
     },
     setBlacklist: function (ids) {
       save('blacklistMerchantIds', ids);
@@ -539,8 +558,10 @@
     },
     addBlacklist: function (merchantId) {
       var ids = store.getBlacklist().slice();
-      if (ids.indexOf(merchantId) === -1) ids.push(merchantId);
-      save('blacklistMerchantIds', ids);
+      if (ids.indexOf(merchantId) === -1) {
+        ids.push(merchantId);
+        save('blacklistMerchantIds', ids);
+      }
       return ids;
     },
     removeBlacklist: function (merchantId) {
