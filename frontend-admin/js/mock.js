@@ -316,6 +316,8 @@
       var all = load('merchantKnowledge', {});
       delete all[id];
       save('merchantKnowledge', all);
+      // 同步从通用知识的商家黑名单中移除，避免残留已删除的商家
+      store.setBlacklist(store.getBlacklist().filter(function (bid) { return bid !== id; }));
       return list;
     },
     getMerchantKnowledge: function (merchantId) {
@@ -531,7 +533,16 @@
     },
 
     getBlacklist: function () {
-      return load('blacklistMerchantIds', defaultBlacklistMerchantIds);
+      var ids = load('blacklistMerchantIds', defaultBlacklistMerchantIds);
+      if (!Array.isArray(ids)) ids = [];
+      // 只保留仍存在的商家，过滤掉已删除商家的残留 ID，并回写保持数据一致
+      var validIds = {};
+      store.getMerchants().forEach(function (m) { validIds[m.id] = true; });
+      var pruned = ids.filter(function (id) { return validIds[id]; });
+      if (pruned.length !== ids.length) {
+        save('blacklistMerchantIds', pruned);
+      }
+      return pruned;
     },
     setBlacklist: function (ids) {
       save('blacklistMerchantIds', ids);
